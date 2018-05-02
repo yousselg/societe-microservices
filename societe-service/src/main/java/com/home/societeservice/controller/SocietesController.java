@@ -1,5 +1,6 @@
 package com.home.societeservice.controller;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -8,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
+import org.springframework.context.ApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.hateoas.Resource;
 import org.springframework.hateoas.Resources;
@@ -17,6 +19,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.view.jasperreports.JasperReportsPdfView;
 
 import com.home.societeservice.entities.Societe;
 import com.home.societeservice.repositories.SocieteRepository;
@@ -33,6 +37,9 @@ public class SocietesController {
 	private Environment environment;
 
 	@Autowired
+	private ApplicationContext appContext;
+
+	@Autowired
 	private SocieteRepository repository;
 
 	// Add the produces field to avoid an error
@@ -42,6 +49,17 @@ public class SocietesController {
 		resource.add(ControllerLinkBuilder.linkTo(ControllerLinkBuilder.methodOn(this.getClass()).getOneSociete(null))
 				.withRel("Get one societe by id"));
 		return resource;
+	}
+
+	@GetMapping(value = "/rapport", produces = MediaType.APPLICATION_PDF_VALUE)
+	public ModelAndView getRepport() {
+		JasperReportsPdfView view = new JasperReportsPdfView();
+		view.setUrl("classpath:/static/rapport/Silhouette.jrxml");
+		view.setApplicationContext(appContext);
+		Map<String, Object> params = new HashMap<>();
+		params.put("datasource", this.getAllSocietesMap());
+		return new ModelAndView(view, params);
+
 	}
 
 	@GetMapping(value = "/{id}", produces = { MediaType.APPLICATION_JSON_VALUE, "application/hal+json" })
@@ -63,30 +81,42 @@ public class SocietesController {
 	public Map<String, List<Societe>> getAllWithPort() {
 		logger.info("Responder server port : " + environment.getProperty("local.server.port"));
 		List<Societe> resource = repository.findAll();
-		logger.info(resource.size()+ " objects selected");
+		logger.info(resource.size() + " objects selected");
 		Map<String, List<Societe>> map = new HashMap<>();
 		map.put(environment.getProperty("local.server.port"), resource);
 		return map;
 	}
-	
+
 	@GetMapping(value = "/feign/portfault")
-	@HystrixCommand(fallbackMethod="getAllWithPortFaultTolerenceFallback")
+	@HystrixCommand(fallbackMethod = "getAllWithPortFaultTolerenceFallback")
 	public Map<String, List<Societe>> getAllWithPortFaultTolerence() {
 		logger.info("Responder server port : " + environment.getProperty("local.server.port"));
 		List<Societe> resource = repository.findAll();
-		logger.info(resource.size()+ " objects selected");
+		logger.info(resource.size() + " objects selected");
 		Map<String, List<Societe>> map = new HashMap<>();
 		map.put(environment.getProperty("local.server.port"), resource);
 		return map;
 	}
-	
+
 	public Map<String, List<Societe>> getAllWithPortFaultTolerenceFallback() {
 		logger.info("Responder server port : " + environment.getProperty("local.server.port"));
 		List<Societe> resource = repository.findAll();
-		logger.info(resource.size()+ " objects selected");
+		logger.info(resource.size() + " objects selected");
 		Map<String, List<Societe>> map = new HashMap<>();
 		map.put(environment.getProperty("local.server.port"), resource);
 		return map;
+	}
+
+	private List<Map<String, Object>> getAllSocietesMap() {
+		List<Map<String, Object>> result = new ArrayList<>();
+		Map<String, Object> map;
+		for (Societe s : repository.findAll()) {
+			map = new HashMap<>();
+			map.put("id", s.getId().toString());
+			map.put("rc", s.getRc());
+			result.add(map);
+		}
+		return result;
 	}
 
 }
